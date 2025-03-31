@@ -43,6 +43,9 @@ public class CORPairs extends Configured implements Tool {
 	 */
 	private static class CORMapper1 extends
 			Mapper<LongWritable, Text, Text, IntWritable> {
+
+		private final static Text WORD = new Text();
+
 		@Override
 		public void map(LongWritable key, Text value, Context context)
 				throws IOException, InterruptedException {
@@ -53,6 +56,15 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			while (doc_tokenizer.hasMoreTokens()) {
+				String word = doc_tokenizer.nextToken();
+				word_set.put(word, word_set.getOrDefault(word, 0) + 1);
+			}
+			for (Map.Entry<String, Integer> entry : word_set.entrySet()) {
+				String word = entry.getKey();
+				WORD.set(word);
+				context.write(WORD, new IntWritable(entry.getValue()));
+			}
 		}
 	}
 
@@ -61,11 +73,21 @@ public class CORPairs extends Configured implements Tool {
 	 */
 	private static class CORReducer1 extends
 			Reducer<Text, IntWritable, Text, IntWritable> {
+
+		private final static IntWritable SUM = new IntWritable();
+
 		@Override
 		public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			Iterator<IntWritable> iter = values.iterator();
+			int sum = 0;
+			while (iter.hasNext()) {
+				sum += iter.next().get();
+			}
+			SUM.set(sum);
+			context.write(key, SUM);
 		}
 	}
 
@@ -74,13 +96,38 @@ public class CORPairs extends Configured implements Tool {
 	 * TODO: Write your second-pass Mapper here.
 	 */
 	public static class CORPairsMapper2 extends Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
+
+		private static final IntWritable ONE = new IntWritable(1);
+		private static final PairOfStrings PAIR = new PairOfStrings();
+		private Set<String> uniqueWords = new HashSet<>();
+
 		@Override
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+
 			// Please use this tokenizer! DO NOT implement a tokenizer by yourself!
 			StringTokenizer doc_tokenizer = new StringTokenizer(value.toString().replaceAll("[^a-z A-Z]", " "));
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			while (doc_tokenizer.hasMoreTokens()) {
+				uniqueWords.add(doc_tokenizer.nextToken());
+			}
+
+			String[] words = uniqueWords.toArray(new String[0]);
+			Arrays.sort(words);
+
+			for (int i = 0; i < words.length - 1; i++) {
+				for (int j = i + 1; j < words.length; j++) {
+					if (words[i].compareTo(words[j]) <= 0) {
+						PAIR.set(words[i], words[j]);
+					} else {
+						PAIR.set(words[j], words[i]);
+					}
+					context.write(PAIR, ONE);
+				}
+			}
+			uniqueWords.clear();
+
 		}
 	}
 
@@ -88,11 +135,20 @@ public class CORPairs extends Configured implements Tool {
 	 * TODO: Write your second-pass Combiner here.
 	 */
 	private static class CORPairsCombiner2 extends Reducer<PairOfStrings, IntWritable, PairOfStrings, IntWritable> {
+		private final static IntWritable SUM = new IntWritable();
+
 		@Override
 		protected void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			Iterator<IntWritable> iter = values.iterator();
+			int sum = 0;
+			while (iter.hasNext()) {
+				sum += iter.next().get();
+			}
+			SUM.set(sum);
+			context.write(key, SUM);
 		}
 	}
 
@@ -145,6 +201,21 @@ public class CORPairs extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+			Iterator<IntWritable> iter = values.iterator();
+			int pairCount = 0;
+			while (iter.hasNext()) {
+				pairCount += iter.next().get();
+			}
+
+			String wordA = key.getLeftElement();
+			String wordB = key.getRightElement();
+			int freqA = word_total_map.get(wordA);
+			int freqB = word_total_map.get(wordB);
+
+			// COR(A,B) = Freq(A,B) / (Freq(A) * Freq(B))
+			double cor = (double)pairCount / (freqA * freqB);
+
+			context.write(key, new DoubleWritable(cor));
 		}
 	}
 
