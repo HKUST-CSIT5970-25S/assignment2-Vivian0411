@@ -102,6 +102,8 @@ public class BigramFrequencyPairs extends Configured implements Tool {
 			}
 			if (key.getRightElement().equals(EMPTY_STRING)) {
 				marginals.put(key.getLeftElement(), sum);
+				VALUE.set((float) sum);
+				context.write(key, VALUE);
 			} else {
 				int marginal = 0;
 				if (marginals.containsKey(key.getLeftElement())) {
