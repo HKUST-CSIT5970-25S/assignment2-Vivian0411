@@ -48,7 +48,12 @@ public class CORStripes extends Configured implements Tool {
 			 */
 			while (doc_tokenizer.hasMoreTokens()) {
 				String word = doc_tokenizer.nextToken();
-				word_set.put(word, word_set.getOrDefault(word, 0) + 1);
+				Integer count = word_set.get(word);
+				if (count == null) {
+					word_set.put(word, 1);
+				} else {
+					word_set.put(word, count + 1);
+				}
 			}
 			for (Map.Entry<String, Integer> entry : word_set.entrySet()) {
 				String word = entry.getKey();
